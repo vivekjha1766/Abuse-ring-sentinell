@@ -19,7 +19,7 @@ import pandas as pd
 from ml.feature_contract import assert_model_input_safe
 from ml.feature_registry import FEATURE_COLUMNS, WINDOWS
 from ml.point_in_time import MIN_HISTORY_FOR_DEVIATION, TransactionHistory
-from ml.temporal import temporal_features
+from ml.temporal import compute_temporal_features
 
 IMPOSSIBLE_TRAVEL_MAX_KMH = 900.0
 
@@ -46,7 +46,11 @@ def build_feature_matrix(
     than that row's timestamp; callers must still respect split policy and never
     pass held-out rows before Checkpoint 6.
     """
+    history_transactions = list(history_transactions)
     history = TransactionHistory.from_transactions(history_transactions)
+    # Computed once, via a single chronological pass per account, rather than
+    # once per transaction -- see the Checkpoint 2C-P notes in ml/temporal.py.
+    temporal_by_transaction_id = compute_temporal_features(history_transactions, transactions)
     records: list[dict[str, float]] = []
 
     for txn in transactions:
@@ -84,7 +88,7 @@ def build_feature_matrix(
             record[f"tx_volume_{label}"] = float(
                 view.amount_sum(window, key="account_id", value=account_id)
             )
-        temporal = temporal_features(history, txn)
+        temporal = temporal_by_transaction_id[_value(txn, "transaction_id")]
         record.update(temporal)
         # The catalogue's behavioural frequency-deviation feature is the
         # historical z-score of the current one-hour account count. It is kept
