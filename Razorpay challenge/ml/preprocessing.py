@@ -117,6 +117,11 @@ class StandardScaler(SplitSafeTransformer):
 
     def _transform(self, data: pd.DataFrame) -> pd.DataFrame:
         assert_model_matrix_safe(data, context=f"{self.name}.transform input")
+        # Narrows self._columns from `tuple[str, ...] | None` to `tuple[str, ...]`
+        # for mypy. Always true at runtime: SplitSafeTransformer.transform()
+        # only calls _transform after is_fitted is True, which is only true
+        # once _fit has set self._columns.
+        assert self._columns is not None, "_transform called before _fit"
         if tuple(data.columns) != self._columns:
             raise ValueError(
                 f"{self.name}.transform received columns {list(data.columns)}, "
