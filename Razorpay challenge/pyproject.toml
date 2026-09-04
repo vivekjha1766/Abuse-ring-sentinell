@@ -1,0 +1,164 @@
+[project]
+name = "abuse-ring-sentinel"
+version = "0.1.0"
+description = "Graph-based fraud intelligence and coordinated abuse detection platform (synthetic-data research/portfolio prototype)"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "jhavi" }]
+keywords = ["fraud-detection", "graph-analytics", "machine-learning", "fastapi", "synthetic-data"]
+
+# Shared runtime dependencies used by more than one component.
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.1",
+    "pydantic>=2.6",
+    "pydantic-settings>=2.2",
+    "python-dotenv>=1.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+# Checkpoint 1 — synthetic ecosystem + fraud simulator
+simulator = [
+    "pyarrow>=15.0",     # parquet I/O for generated datasets
+]
+
+# Checkpoint 2 — feature engineering, temporal intelligence, baseline ML
+ml = [
+    "scikit-learn>=1.4",
+    "xgboost>=2.0",
+    "scipy>=1.12",
+    "pyarrow>=15.0",
+]
+
+# Checkpoint 3 — graph intelligence.
+# NOTE: NetworkX >=3.0 ships `networkx.algorithms.community.louvain_communities`,
+# so Louvain community detection needs NO extra dependency. Do not add
+# `python-louvain` unless a concrete gap is demonstrated (see docs/ML_READINESS.md).
+graph = [
+    "networkx>=3.2",
+]
+
+# Checkpoint 4 — backend API + persistence
+api = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "sqlalchemy>=2.0",
+    "alembic>=1.13",
+    "psycopg[binary]>=3.1",
+]
+
+# Convenience meta-extra for full local development
+all = [
+    "abuse-ring-sentinel[simulator,ml,graph,api]",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "pytest-asyncio>=0.23",
+    "httpx>=0.27",           # FastAPI TestClient transport
+    "freezegun>=1.4",        # deterministic time in temporal/leakage tests
+    "hypothesis>=6.100",     # property-based tests for point-in-time safety
+    "ruff>=0.4",
+    "mypy>=1.10",
+]
+
+# ------------------------------------------------------------------
+# uv configuration
+# ------------------------------------------------------------------
+# This project is an *application*, not a distributable library, so it is not
+# built/installed as a package. Run everything through `uv run` from the repo
+# root; top-level packages (simulator/, ml/, graph/, backend/) import via rootdir.
+[tool.uv]
+package = false
+default-groups = ["dev"]
+
+# ------------------------------------------------------------------
+# Ruff — lint + format
+# ------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["data", "artifacts", "frontend", "backend/alembic/versions"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "C4",   # comprehensions
+    "SIM",  # flake8-simplify
+    "ARG",  # unused arguments
+    "PTH",  # prefer pathlib
+    "RUF",  # ruff-specific
+    "S",    # flake8-bandit (security)
+]
+ignore = [
+    "E501",  # line length handled by the formatter
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests may use asserts and hardcoded throwaway values.
+"tests/**" = ["S101", "ARG001", "ARG002"]
+"scripts/**" = ["S101"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+# ------------------------------------------------------------------
+# Pytest
+# ------------------------------------------------------------------
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+]
+markers = [
+    "unit: fast isolated unit tests",
+    "integration: tests spanning multiple components",
+    "api: FastAPI endpoint tests",
+    "ml: model training / evaluation tests",
+    "leakage: point-in-time safety and data-leakage guards (must never be skipped)",
+    "graph: graph construction and detection tests",
+    "e2e: full end-to-end workflow tests",
+    "slow: tests that take more than a few seconds",
+]
+filterwarnings = ["error::DeprecationWarning"]
+
+# ------------------------------------------------------------------
+# Coverage
+# ------------------------------------------------------------------
+[tool.coverage.run]
+branch = true
+source = ["simulator", "ml", "graph", "backend"]
+omit = ["*/tests/*", "*/.venv/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
+
+# ------------------------------------------------------------------
+# Mypy
+# ------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.11"
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+disallow_untyped_defs = false   # tightened progressively per checkpoint
+ignore_missing_imports = true
+exclude = ["data/", "artifacts/", "frontend/", "backend/alembic/versions/"]
