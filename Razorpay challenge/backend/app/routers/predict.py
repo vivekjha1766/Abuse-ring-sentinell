@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from backend.app.services.artifacts import ArtifactsNotConfiguredError
 from backend.app.services.explain import explain
+from backend.app.services.graph_service import entity_signals_for_transaction
 from backend.app.services.scoring import score_transaction
 
 router = APIRouter()
@@ -25,7 +26,8 @@ def predict(request: PredictRequest) -> dict:
     except ArtifactsNotConfiguredError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
-    reasons = explain(result.feature_vector)
+    graph_signals = entity_signals_for_transaction(request.transaction_id)
+    reasons = explain(result.feature_vector, graph_signals=graph_signals)
 
     return {
         "transaction_id": result.transaction_id,
