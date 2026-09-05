@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from backend.app.services.data_store import load_demo_data
 
@@ -27,3 +27,17 @@ def get_transaction(transaction_id: str) -> dict:
         "transaction_type": transaction.transaction_type,
         "status": transaction.status,
     }
+
+
+@router.get("/transactions")
+def list_transactions(limit: int = Query(10, ge=1, le=200)) -> dict:
+    """A small, deterministic list of valid transaction ids for demo/sample use.
+
+    Returns the first `limit` transaction ids from the already-loaded
+    non-heldout dataset (or the synthetic fallback fixture), in the same
+    order every time -- used by the frontend to populate the sample
+    transaction dropdown. Performs no scoring or filtering and never reads
+    heldout data.
+    """
+    data = load_demo_data()
+    return {"transaction_ids": data.sample_ids(limit)}

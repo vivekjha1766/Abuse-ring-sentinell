@@ -255,10 +255,9 @@ $("#demo-run-btn").addEventListener("click", runDemoWalkthrough);
 async function bootstrap() {
   await loadDashboard();
   try {
-    const stats = await getJSON("/stats");
-    // Best-effort sample ids for convenience dropdowns; falls back silently.
-    const alerts = await getJSON("/alerts?limit=10");
-    const ids = alerts.alerts.map((a) => a.transaction_id);
+    // A small, deterministic set of valid ids for the sample dropdown.
+    const transactions = await getJSON("/transactions?limit=10");
+    const ids = transactions.transaction_ids;
     window.__sampleIds = ids.length ? ids : ["demo_txn_002"];
     const select = $("#txn-sample-select");
     window.__sampleIds.forEach((id) => {
