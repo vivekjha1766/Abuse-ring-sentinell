@@ -41,6 +41,7 @@ from ml.evaluation_contract import (
     ConfusionMatrix,
     assert_metric_report_valid,
 )
+from ml.feature_registry import FEATURE_COLUMNS
 from ml.features import build_feature_matrix
 from ml.preprocessing import assert_model_matrix_safe
 from ml.split_policy import unseal_heldout
@@ -124,10 +125,26 @@ def _apply_frozen_scaling(matrix: pd.DataFrame, scaler_params: dict) -> pd.DataF
 
     ``(data - mean) / scale``, using the exact mean/scale this run's scaler
     was fitted with on TRAIN -- read from disk, not refit here.
+
+    Root cause this guards against: the persisted JSON was written with
+    ``json.dumps(..., sort_keys=True)`` (scripts/train_baseline_models.py),
+    which alphabetically reorders the "mean"/"scale" sub-dictionaries' keys
+    on disk. Every value is still keyed by its correct feature name -- the
+    artifact's *values* are unaffected -- but building a Series directly
+    from that dict gives it an alphabetically-ordered index, not the
+    registered FEATURE_COLUMNS order ``matrix`` already has. Aligning a
+    FEATURE_COLUMNS-ordered DataFrame against a same-labels-different-order
+    Series makes pandas reorder the arithmetic result to the aligned union
+    of the two orderings, which is exactly the "same 25 features, different
+    order" mismatch this function must not produce. Reindexing ``mean`` and
+    ``scale`` to FEATURE_COLUMNS before the arithmetic, and reordering the
+    result to FEATURE_COLUMNS again afterwards, makes the output's column
+    order independent of whatever order happens to be on disk.
     """
-    mean = pd.Series(scaler_params["mean"])
-    scale = pd.Series(scaler_params["scale"])
-    return (matrix - mean) / scale
+    mean = pd.Series(scaler_params["mean"]).reindex(FEATURE_COLUMNS)
+    scale = pd.Series(scaler_params["scale"]).reindex(FEATURE_COLUMNS)
+    scaled = (matrix - mean) / scale
+    return scaled[list(FEATURE_COLUMNS)]
 
 
 def _config_hash(config: dict) -> str:
