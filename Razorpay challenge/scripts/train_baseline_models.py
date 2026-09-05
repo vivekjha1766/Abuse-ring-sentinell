@@ -97,6 +97,35 @@ def _config_hash(config: dict) -> str:
     return hashlib.sha256(encoded).hexdigest()[:16]
 
 
+def _generate_experiment_id(config: dict, now: datetime) -> str:
+    """Filesystem-safe, unique-per-invocation experiment identifier.
+
+    Combines a microsecond-resolution rendering of ``now`` with
+    ``_config_hash(config)`` (unchanged), so two runs sharing an identical
+    config -- the scenario that previously caused a silent artifact
+    collision -- still receive different ids, since they cannot share the
+    same microsecond. ``_config_hash`` alone is deliberately kept unchanged
+    and is still what the record's own ``config_hash`` field reports.
+    """
+    run_slug = now.strftime("%Y%m%dT%H%M%S%f")
+    return f"{run_slug}_{_config_hash(config)}"
+
+
+def _assert_artifact_does_not_exist(path: Path) -> None:
+    """Refuse to silently overwrite an existing artifact.
+
+    A collision here would mean ``experiment_id`` was reused rather than
+    freshly generated. This is the fail-loudly complement to
+    ``_generate_experiment_id``'s timestamp-based uniqueness, not a
+    substitute for it.
+    """
+    if path.exists():
+        raise FileExistsError(
+            f"refusing to overwrite existing artifact at {path}; "
+            "experiment_id must not collide with an existing experiment"
+        )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", type=int, default=int(os.environ.get("SENTINEL_SEED", 42)))
@@ -143,13 +172,14 @@ def main() -> None:
         y_validation, logreg_scores, model_type="logistic_regression", cost=cost
     )
 
-    timestamp = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(timezone.utc)
+    timestamp = now.isoformat()
     config = {
         "seed": args.seed,
         "feature_columns": list(FEATURE_COLUMNS),
         "cost_config": cost.name,
     }
-    experiment_id = f"checkpoint_2e_{_config_hash(config)}"
+    experiment_id = _generate_experiment_id(config, now)
 
     preprocessing_dir = args.output_dir / "preprocessing"
     models_dir = args.output_dir / "models"
@@ -158,6 +188,7 @@ def main() -> None:
         directory.mkdir(parents=True, exist_ok=True)
 
     scaler_path = preprocessing_dir / f"standard_scaler_{experiment_id}.json"
+    _assert_artifact_does_not_exist(scaler_path)
     scaler_path.write_text(
         json.dumps(
             {
@@ -171,8 +202,12 @@ def main() -> None:
         encoding="utf-8",
     )
 
-    joblib.dump(majority, models_dir / f"majority_classifier_{experiment_id}.joblib")
-    joblib.dump(logreg, models_dir / f"logistic_regression_{experiment_id}.joblib")
+    majority_path = models_dir / f"majority_classifier_{experiment_id}.joblib"
+    logreg_path = models_dir / f"logistic_regression_{experiment_id}.joblib"
+    _assert_artifact_does_not_exist(majority_path)
+    _assert_artifact_does_not_exist(logreg_path)
+    joblib.dump(majority, majority_path)
+    joblib.dump(logreg, logreg_path)
 
     # Hyperparameters are read from each model's own live configuration, not
     # duplicated as a separate hardcoded dict, so this cannot drift from what
@@ -206,6 +241,7 @@ def main() -> None:
         "notes": "Checkpoint 2E baseline ladder (Model 0 + Model 1). Heldout not accessed.",
     }
     report_path = reports_dir / f"{experiment_id}.json"
+    _assert_artifact_does_not_exist(report_path)
     report_path.write_text(json.dumps(record, indent=2, sort_keys=True), encoding="utf-8")
     print(json.dumps({"experiment_id": experiment_id, "report_path": str(report_path)}))
 
