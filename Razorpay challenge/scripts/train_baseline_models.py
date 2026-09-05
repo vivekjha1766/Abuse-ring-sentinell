@@ -174,6 +174,21 @@ def main() -> None:
     joblib.dump(majority, models_dir / f"majority_classifier_{experiment_id}.joblib")
     joblib.dump(logreg, models_dir / f"logistic_regression_{experiment_id}.joblib")
 
+    # Hyperparameters are read from each model's own live configuration, not
+    # duplicated as a separate hardcoded dict, so this cannot drift from what
+    # was actually fit. LogisticRegressionBaseline already exposes its
+    # configuration publicly via `.hyperparameters` (ml/models.py, unchanged).
+    # MajorityClassifier has no public hyperparameters accessor -- ml/models.py
+    # is out of scope for this fix -- so its underlying
+    # sklearn.dummy.DummyClassifier's own get_params() is read directly; this
+    # is scikit-learn's own introspection of the actual fitted estimator, not
+    # a restated copy.
+    majority_record = {
+        **majority_report.to_dict(),
+        "hyperparameters": majority._model.get_params(),
+    }
+    logreg_record = {**logreg_report.to_dict(), "hyperparameters": logreg.hyperparameters}
+
     record = {
         "experiment_id": experiment_id,
         "timestamp": timestamp,
@@ -187,7 +202,7 @@ def main() -> None:
         "split": "validation",
         "feature_set": "B - transaction + temporal (25 registered features; no graph/reputation yet)",
         "preprocessing_ref": str(scaler_path.relative_to(REPO_ROOT)),
-        "models": [majority_report.to_dict(), logreg_report.to_dict()],
+        "models": [majority_record, logreg_record],
         "notes": "Checkpoint 2E baseline ladder (Model 0 + Model 1). Heldout not accessed.",
     }
     report_path = reports_dir / f"{experiment_id}.json"
