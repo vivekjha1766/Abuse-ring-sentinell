@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Abuse-Ring Sentinel — Fraud Detection Demo</title>
+<link rel="stylesheet" href="styles.css" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+</head>
+<body>
+<header>
+  <h1>Abuse-Ring Sentinel</h1>
+  <p class="subtitle">Graph-aware fraud detection — synthetic-data research prototype</p>
+</header>
+
+<nav class="tabs">
+  <button class="tab-btn active" data-tab="dashboard">Executive Dashboard</button>
+  <button class="tab-btn" data-tab="explorer">Transaction Risk Explorer</button>
+  <button class="tab-btn" data-tab="rings">Fraud Ring Explorer</button>
+  <button class="tab-btn" data-tab="performance">Model Performance</button>
+  <button class="tab-btn" data-tab="demo">Demo Investigation</button>
+</nav>
+
+<main>
+
+  <section id="dashboard" class="tab-panel active">
+    <h2>Executive Dashboard</h2>
+    <div id="dashboard-banner" class="banner"></div>
+    <div class="cards" id="dashboard-cards"></div>
+    <h3>Frozen heldout evaluation — Checkpoint 2H</h3>
+    <p class="caveat">Evaluated exactly once, on the sealed heldout split, after all thresholds were frozen on validation. Not a live production metric. Synthetic data.</p>
+    <table id="dashboard-metrics" class="metrics-table"></table>
+  </section>
+
+  <section id="explorer" class="tab-panel">
+    <h2>Transaction Risk Explorer</h2>
+    <div class="row">
+      <input id="txn-input" type="text" placeholder="transaction_id (e.g. demo_txn_002)" />
+      <button id="txn-score-btn">Score transaction</button>
+      <select id="txn-sample-select"><option value="">-- pick a sample --</option></select>
+    </div>
+    <div id="explorer-result"></div>
+  </section>
+
+  <section id="rings" class="tab-panel">
+    <h2>Fraud Ring Explorer</h2>
+    <p class="caveat">Investigative graph over shared devices/IPs/merchants. Does not affect the frozen model score.</p>
+    <div class="row">
+      <input id="graph-txn-input" type="text" placeholder="transaction_id" />
+      <button id="graph-load-btn">Load ego-network</button>
+    </div>
+    <div id="cy" style="width:100%;height:420px;border:1px solid #ddd;"></div>
+    <h3>Ring candidates</h3>
+    <table id="rings-table" class="metrics-table"></table>
+  </section>
+
+  <section id="performance" class="tab-panel">
+    <h2>Model Performance — Frozen Heldout Evaluation (Checkpoint 2H)</h2>
+    <canvas id="performance-chart" height="120"></canvas>
+    <table id="performance-table" class="metrics-table"></table>
+  </section>
+
+  <section id="demo" class="tab-panel">
+    <h2>Demo Investigation Walkthrough</h2>
+    <p>Click through: sample transaction → risk score → explanation → connected entities → ring candidates.</p>
+    <button id="demo-run-btn">Run walkthrough</button>
+    <ol id="demo-steps" class="demo-steps"></ol>
+  </section>
+
+</main>
+
+<footer>
+  <p>Synthetic data only. Benchmark costs are synthetic assumptions. See README.md and docs/SUBMISSION_RESULTS.md.</p>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

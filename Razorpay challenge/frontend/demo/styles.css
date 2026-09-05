@@ -1,0 +1,92 @@
+* { box-sizing: border-box; }
+body {
+  font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  margin: 0;
+  background: #f5f6f8;
+  color: #1a1a2e;
+}
+header {
+  background: #12143a;
+  color: white;
+  padding: 20px 32px;
+}
+header h1 { margin: 0; font-size: 22px; }
+.subtitle { margin: 4px 0 0; opacity: 0.8; font-size: 13px; }
+nav.tabs {
+  display: flex;
+  gap: 4px;
+  background: white;
+  padding: 8px 24px 0;
+  border-bottom: 2px solid #e2e4ea;
+}
+.tab-btn {
+  border: none;
+  background: transparent;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #555;
+  border-bottom: 3px solid transparent;
+}
+.tab-btn.active { color: #12143a; font-weight: 600; border-bottom-color: #4c6ef5; }
+main { padding: 24px 32px; max-width: 1100px; margin: 0 auto; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+.cards { display: flex; gap: 16px; margin: 16px 0 24px; flex-wrap: wrap; }
+.card {
+  background: white;
+  border-radius: 8px;
+  padding: 16px 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  min-width: 160px;
+}
+.card .value { font-size: 26px; font-weight: 700; color: #12143a; }
+.card .label { font-size: 12px; color: #777; text-transform: uppercase; letter-spacing: 0.03em; }
+.banner {
+  background: #fff4e5;
+  border: 1px solid #ffd699;
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+.caveat { font-size: 13px; color: #666; }
+.metrics-table { width: 100%; border-collapse: collapse; margin-top: 8px; background: white; }
+.metrics-table th, .metrics-table td {
+  border: 1px solid #e2e4ea;
+  padding: 8px 10px;
+  text-align: right;
+  font-size: 13px;
+}
+.metrics-table th:first-child, .metrics-table td:first-child { text-align: left; }
+.metrics-table tr.highlight { background: #eaf0ff; font-weight: 700; }
+.row { display: flex; gap: 8px; margin-bottom: 16px; }
+.row input, .row select {
+  padding: 8px 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 14px;
+  flex: 1;
+}
+.row button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  background: #4c6ef5;
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+}
+.risk-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 12px;
+}
+.risk-Low { background: #d3f9d8; color: #2b8a3e; }
+.risk-Medium { background: #fff3bf; color: #997404; }
+.risk-High { background: #ffe3e3; color: #c92a2a; }
+.signal-list { margin: 8px 0; padding-left: 20px; }
+.demo-steps li { margin-bottom: 10px; padding: 10px; background: white; border-radius: 6px; }
+footer { padding: 16px 32px; font-size: 12px; color: #888; text-align: center; }
