@@ -24,7 +24,7 @@ import pytest
 
 from ml.evaluation import evaluate_on_validation
 from ml.feature_registry import FEATURE_COLUMNS
-from ml.models import LogisticRegressionBaseline, MajorityClassifier
+from ml.models import LogisticRegressionBaseline, MajorityClassifier, XGBoostBaseline
 from scripts.train_baseline_models import (
     _assert_artifact_does_not_exist,
     _generate_experiment_id,
@@ -108,3 +108,27 @@ def test_existing_artifact_causes_a_loud_failure_not_a_silent_overwrite(tmp_path
 
     # The guard must not have touched the file it refused to overwrite.
     assert target.read_text(encoding="utf-8") == "original content"
+
+
+def test_xgboost_record_entry_contains_truthful_hyperparameters():
+    X, y = _toy_data()
+    model = XGBoostBaseline(random_state=11).fit(X, y, split="train")
+    report = evaluate_on_validation(y, model.predict_proba(X), model_type="xgboost")
+
+    # The exact construction scripts/train_baseline_models.py uses.
+    record_entry = {**report.to_dict(), "hyperparameters": model.hyperparameters}
+
+    assert "hyperparameters" in record_entry
+    assert record_entry["hyperparameters"]["random_state"] == 11
+    assert record_entry["hyperparameters"]["n_estimators"] == 100
+
+
+def test_xgboost_model_artifact_round_trips_via_joblib(tmp_path):
+    import joblib
+
+    X, y = _toy_data()
+    model = XGBoostBaseline(random_state=3).fit(X, y, split="train")
+    path = tmp_path / "xgboost.joblib"
+    joblib.dump(model, path)
+    loaded = joblib.load(path)
+    assert np.array_equal(model.predict_proba(X), loaded.predict_proba(X))

@@ -1,12 +1,14 @@
-"""Checkpoint 2E: train and evaluate the Model 0 / Model 1 baseline ladder.
+"""Checkpoint 2E/2G: train and evaluate the Model 0 / Model 1 / Model 2 baseline ladder.
 
 Loads warm-up, train, and validation only -- heldout is never named or
 imported (see PERMITTED_SPLITS below and docs/DATA_SPLIT_PROTOCOL.md).
 Builds the 25-feature matrix exactly as scripts/benchmark_feature_generation.py
-does, fits preprocessing and both models on TRAIN only, evaluates and selects
-an operating threshold on VALIDATION only under the primary cost
-configuration, and persists the fitted preprocessing, both models, and one
-experiment record.
+does, fits preprocessing and all three models on TRAIN only, evaluates and
+selects an operating threshold on VALIDATION only under the primary cost
+configuration, and persists the fitted preprocessing, all three models, and
+one experiment record. Model 2 (XGBoost, added at Checkpoint 2G) uses a
+fixed, conservative configuration -- no hyperparameter search, no early
+stopping.
 
 No feature is added, removed, or redefined. No resampling of any kind. No
 graph features. No held-out access. No documentation is updated by this
@@ -36,7 +38,7 @@ from ml.evaluation import evaluate_on_validation
 from ml.evaluation_contract import cost_config_from_env
 from ml.feature_registry import FEATURE_COLUMNS
 from ml.features import build_feature_matrix
-from ml.models import LogisticRegressionBaseline, MajorityClassifier
+from ml.models import LogisticRegressionBaseline, MajorityClassifier, XGBoostBaseline
 from ml.preprocessing import StandardScaler, assert_model_matrix_safe
 from simulator.transactions import Transaction
 
@@ -160,9 +162,16 @@ def main() -> None:
     logreg = LogisticRegressionBaseline(random_state=args.seed).fit(
         train_scaled, y_train, split="train"
     )
+    # Model 2 (Checkpoint 2G): no scaling, per docs/MODEL_BASELINES.md
+    # ("trees are scale-invariant") -- fit on the same raw train_matrix as
+    # Model 0, not train_scaled.
+    xgboost_model = XGBoostBaseline(random_state=args.seed).fit(
+        train_matrix, y_train, split="train"
+    )
 
     majority_scores = majority.predict_proba(validation_matrix)
     logreg_scores = logreg.predict_proba(validation_scaled)
+    xgboost_scores = xgboost_model.predict_proba(validation_matrix)
 
     cost = cost_config_from_env()
     majority_report = evaluate_on_validation(
@@ -170,6 +179,9 @@ def main() -> None:
     )
     logreg_report = evaluate_on_validation(
         y_validation, logreg_scores, model_type="logistic_regression", cost=cost
+    )
+    xgboost_report = evaluate_on_validation(
+        y_validation, xgboost_scores, model_type="xgboost", cost=cost
     )
 
     now = datetime.now(timezone.utc)
@@ -204,10 +216,13 @@ def main() -> None:
 
     majority_path = models_dir / f"majority_classifier_{experiment_id}.joblib"
     logreg_path = models_dir / f"logistic_regression_{experiment_id}.joblib"
+    xgboost_path = models_dir / f"xgboost_{experiment_id}.joblib"
     _assert_artifact_does_not_exist(majority_path)
     _assert_artifact_does_not_exist(logreg_path)
+    _assert_artifact_does_not_exist(xgboost_path)
     joblib.dump(majority, majority_path)
     joblib.dump(logreg, logreg_path)
+    joblib.dump(xgboost_model, xgboost_path)
 
     # Hyperparameters are read from each model's own live configuration, not
     # duplicated as a separate hardcoded dict, so this cannot drift from what
@@ -223,6 +238,10 @@ def main() -> None:
         "hyperparameters": majority._model.get_params(),
     }
     logreg_record = {**logreg_report.to_dict(), "hyperparameters": logreg.hyperparameters}
+    xgboost_record = {
+        **xgboost_report.to_dict(),
+        "hyperparameters": xgboost_model.hyperparameters,
+    }
 
     record = {
         "experiment_id": experiment_id,
@@ -237,8 +256,13 @@ def main() -> None:
         "split": "validation",
         "feature_set": "B - transaction + temporal (25 registered features; no graph/reputation yet)",
         "preprocessing_ref": str(scaler_path.relative_to(REPO_ROOT)),
-        "models": [majority_record, logreg_record],
-        "notes": "Checkpoint 2E baseline ladder (Model 0 + Model 1). Heldout not accessed.",
+        "models": [majority_record, logreg_record, xgboost_record],
+        "notes": (
+            "Checkpoint 2E baseline ladder (Model 0 + Model 1) plus the "
+            "Checkpoint 2G XGBoost benchmark (Model 2). Heldout not accessed. "
+            "No hyperparameter search or early stopping was performed for "
+            "any model."
+        ),
     }
     report_path = reports_dir / f"{experiment_id}.json"
     _assert_artifact_does_not_exist(report_path)

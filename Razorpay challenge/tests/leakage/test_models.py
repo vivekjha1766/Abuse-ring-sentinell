@@ -14,7 +14,7 @@ import pandas as pd
 import pytest
 
 from ml.feature_registry import FEATURE_COLUMNS
-from ml.models import LogisticRegressionBaseline, MajorityClassifier
+from ml.models import LogisticRegressionBaseline, MajorityClassifier, XGBoostBaseline
 from ml.split_policy import SplitPolicyError
 from simulator.leakage import LeakageError
 
@@ -160,3 +160,79 @@ def test_logistic_regression_predict_proba_is_deterministic():
     first = model.predict_proba(target)
     second = model.predict_proba(target)
     assert np.array_equal(first, second)
+
+
+# ---------------------------------------------------------------------------
+# Model 2: XGBoost (Checkpoint 2G)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("split", ["validation", "heldout", "warmup"])
+def test_xgboost_fit_refused_outside_train(split):
+    X_train, y_train = _logreg_train_data()
+    model = XGBoostBaseline(random_state=1)
+    with pytest.raises(SplitPolicyError):
+        model.fit(X_train, y_train, split=split)
+    assert not model.is_fitted
+
+
+def test_xgboost_refit_is_refused():
+    X_train, y_train = _logreg_train_data()
+    model = XGBoostBaseline(random_state=1).fit(X_train, y_train, split="train")
+    with pytest.raises(SplitPolicyError):
+        model.fit(X_train, y_train, split="train")
+
+
+def test_xgboost_predict_before_fit_is_refused():
+    matrix = _toy_matrix([_base_row()])
+    with pytest.raises(SplitPolicyError):
+        XGBoostBaseline(random_state=1).predict_proba(matrix)
+
+
+def test_xgboost_rejects_forbidden_columns_at_fit():
+    X_train, y_train = _logreg_train_data()
+    X_train["is_fraud"] = False
+    with pytest.raises(LeakageError):
+        XGBoostBaseline(random_state=1).fit(X_train, y_train, split="train")
+
+
+def test_xgboost_records_its_fixed_random_state():
+    X_train, y_train = _logreg_train_data()
+    model = XGBoostBaseline(random_state=99).fit(X_train, y_train, split="train")
+    assert model.hyperparameters["random_state"] == 99
+
+
+def test_xgboost_hyperparameters_are_the_fixed_conservative_defaults_not_tuned():
+    X_train, y_train = _logreg_train_data()
+    model = XGBoostBaseline(random_state=1).fit(X_train, y_train, split="train")
+    params = model.hyperparameters
+    assert params["n_estimators"] == 100
+    assert params["max_depth"] == 4
+    assert params["learning_rate"] == 0.1
+    assert params["subsample"] == 0.8
+    assert params["colsample_bytree"] == 0.8
+
+
+def test_xgboost_scale_pos_weight_is_computed_from_train_labels_only():
+    X_train, y_train = _logreg_train_data()  # 40 rows, 25% positive -> 10 pos, 30 neg
+    model = XGBoostBaseline(random_state=1).fit(X_train, y_train, split="train")
+    expected = 30.0 / 10.0
+    assert model.hyperparameters["scale_pos_weight"] == pytest.approx(expected)
+
+
+def test_xgboost_predict_proba_is_deterministic():
+    X_train, y_train = _logreg_train_data()
+    model = XGBoostBaseline(random_state=1).fit(X_train, y_train, split="train")
+    target = _toy_matrix([_base_row(transaction_amount=v) for v in (10.0, 400.0)])
+
+    first = model.predict_proba(target)
+    second = model.predict_proba(target)
+    assert np.array_equal(first, second)
+
+
+def test_xgboost_is_compatible_with_the_25_column_model_matrix():
+    X_train, y_train = _logreg_train_data()
+    model = XGBoostBaseline(random_state=1).fit(X_train, y_train, split="train")
+    scores = model.predict_proba(X_train)
+    assert scores.shape == (len(X_train),)
+    assert np.isfinite(scores).all()

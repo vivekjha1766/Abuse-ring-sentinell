@@ -10,7 +10,10 @@ mechanism ``ml.preprocessing.StandardScaler`` inherits from
 This module only *calls* ``ml.split_policy``'s already-public
 ``assert_permitted``; ``ml/split_policy.py`` itself is not modified.
 
-Model 2 (XGBoost) is out of scope for this checkpoint.
+Model 2 (XGBoost, Checkpoint 2G) uses a deliberately conservative, fixed
+configuration -- no hyperparameter search, no early stopping (early
+stopping would tune against validation). It does not scale its input, per
+spec ("Preprocessing: No scaling needed -- trees are scale-invariant").
 """
 
 from __future__ import annotations
@@ -21,11 +24,12 @@ import numpy as np
 import pandas as pd
 from sklearn.dummy import DummyClassifier
 from sklearn.linear_model import LogisticRegression
+from xgboost import XGBClassifier
 
 from ml.preprocessing import assert_model_matrix_safe
 from ml.split_policy import Operation, Split, SplitLike, SplitPolicyError, assert_permitted
 
-__all__ = ["LogisticRegressionBaseline", "MajorityClassifier"]
+__all__ = ["LogisticRegressionBaseline", "MajorityClassifier", "XGBoostBaseline"]
 
 
 class _SplitSafeModel:
@@ -159,4 +163,74 @@ class LogisticRegressionBaseline(_SplitSafeModel):
         self._model.fit(X, y)
 
     def _predict_proba(self, X: pd.DataFrame) -> np.ndarray:
+        return self._model.predict_proba(X)[:, 1]
+
+
+class XGBoostBaseline(_SplitSafeModel):
+    """Model 2: XGBoost (docs/MODEL_BASELINES.md), Checkpoint 2G.
+
+    A deliberately conservative, fixed configuration for a first benchmark --
+    no hyperparameter search and no early stopping (early stopping would
+    tune against validation, which this checkpoint explicitly avoids). Does
+    not scale its input -- "Preprocessing: No scaling needed (trees are
+    scale-invariant)" per spec -- so it is meant to be fit on the same raw
+    feature matrix as Model 0, not the StandardScaler-transformed matrix
+    Model 1 requires.
+
+    ``scale_pos_weight`` is computed from whatever ``y`` is passed to
+    ``fit`` -- ``(# negative) / (# positive)``, per
+    docs/MODEL_BASELINES.md §4 -- which is always TRAIN, enforced by the
+    inherited split guard. This is the documented class-imbalance
+    correction for this model, not a hyperparameter search, and mirrors how
+    ``LogisticRegressionBaseline`` lets scikit-learn compute
+    ``class_weight="balanced"`` from whatever ``y`` it is fit on.
+    """
+
+    def __init__(
+        self,
+        *,
+        random_state: int,
+        n_estimators: int = 100,
+        max_depth: int = 4,
+        learning_rate: float = 0.1,
+        subsample: float = 0.8,
+        colsample_bytree: float = 0.8,
+    ) -> None:
+        super().__init__(name="XGBoostBaseline")
+        self._fixed_hyperparameters: dict[str, Any] = {
+            "n_estimators": n_estimators,
+            "max_depth": max_depth,
+            "learning_rate": learning_rate,
+            "subsample": subsample,
+            "colsample_bytree": colsample_bytree,
+            "objective": "binary:logistic",
+            "eval_metric": "aucpr",
+            "random_state": random_state,
+        }
+        self._model: XGBClassifier | None = None
+
+    @property
+    def hyperparameters(self) -> dict[str, Any]:
+        """The model's actual, live configuration -- the fixed values above
+        plus the ``scale_pos_weight`` computed at fit time -- read from the
+        fitted estimator itself via ``get_params()``, never a separate
+        hardcoded copy."""
+        if self._model is None:
+            raise SplitPolicyError(f"{self.name} is not fitted")
+        return self._model.get_params()
+
+    def _fit(self, X: pd.DataFrame, y: Any) -> None:
+        y_arr = np.asarray(y).astype(bool)
+        positives = int(y_arr.sum())
+        negatives = int(y_arr.size - positives)
+        # docs/MODEL_BASELINES.md §4: (# negative in TRAIN) / (# positive in TRAIN).
+        scale_pos_weight = float(negatives) / float(positives) if positives > 0 else 1.0
+        self._model = XGBClassifier(
+            **self._fixed_hyperparameters, scale_pos_weight=scale_pos_weight
+        )
+        self._model.fit(X, y_arr)
+
+    def _predict_proba(self, X: pd.DataFrame) -> np.ndarray:
+        if self._model is None:
+            raise SplitPolicyError(f"{self.name} is not fitted")
         return self._model.predict_proba(X)[:, 1]
