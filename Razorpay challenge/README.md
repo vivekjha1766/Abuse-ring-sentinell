@@ -5,17 +5,23 @@
 A production-style portfolio prototype that detects both individual transaction
 anomalies **and** coordinated fraud rings, on fully synthetic data.
 
-> **Status: Checkpoint 1.5 of 8 complete — synthetic data, attacks, ground truth,
-> and the ML-readiness gate.**
-> The simulator generates a reproducible labelled dataset and passes an
-> adversarial shortcut audit with zero oracle findings
-> (`docs/CHECKPOINT_1_VERIFICATION.md`). The readiness gate then passes at 1%, 5%,
-> 10%, and 25% prevalence, and the point-in-time, split, and evaluation contracts
-> features will be built against are in place and tested
-> (`docs/ML_READINESS.md`). No features, models, or detection thresholds exist
-> yet, so every *detection* metric in this repository reads
-> `Not yet measured.` and will stay that way until the corresponding experiment
-> actually runs.
+> **Status: Checkpoint 2H of 8 complete — PIT-safe features, frozen baseline
+> models, and a one-time sealed-heldout evaluation.**
+> The simulator's dataset and shortcut audit (Checkpoint 1), the base and
+> temporal feature extractors (Checkpoints 2A/2B, leakage-tested), and their
+> integration (Checkpoint 2C) are complete. Checkpoint 2C's runtime benchmark
+> found the original temporal implementation quadratic in transactions per
+> account; `ml/temporal.py` now also exposes an O(n) chronological
+> reimplementation (`compute_temporal_features`) that is checked against the
+> original as a correctness oracle, with the audit-friendly original kept
+> unchanged. Split-safe preprocessing (2D) and three frozen baseline models —
+> Majority, Logistic Regression, and XGBoost (2E/2G) — are in place. The
+> sealed heldout split has now been opened exactly once (Checkpoint 2H), after
+> every threshold was already frozen on validation; see **Results** below for
+> the frozen numbers. A demo API (`backend/`), an investigative graph layer
+> (`graph/`), and a static dashboard (`frontend/demo/`) sit on top of this
+> frozen core and change none of it. No production frontend, real-time
+> serving, or entity-reputation/fusion layer exists yet.
 
 ---
 
@@ -142,16 +148,17 @@ simpler methods are insufficient. Full rationale in `ARCHITECTURE.md`.
 ## Repository layout
 
 ```
-simulator/     synthetic ecosystem + 7 parameterized attack families   (Checkpoint 1)
-ml/            safety contracts now; features and models next          (Checkpoints 1.5, 2)
-graph/         graph construction, metrics, reputation, fusion          (Checkpoint 3)
-backend/       FastAPI app, SQLAlchemy models, Alembic migrations       (Checkpoint 4)
-frontend/      React + TypeScript dashboard                            (Checkpoint 5)
-tests/         unit · ml · graph · api · leakage · integration · e2e
-docs/          cost model, split protocol, leakage policy, protocols
-scripts/       dataset generation and utilities
-data/          generated datasets and splits (git-ignored)
-artifacts/     models, preprocessing, reports (git-ignored)
+simulator/       synthetic ecosystem + 7 parameterized attack families         (Checkpoint 1, frozen)
+ml/              PIT-safe features, temporal, preprocessing, models, eval      (2A-2H, frozen)
+graph/           investigation graph: entities, edges, ring candidates         (this sprint)
+backend/         FastAPI demo API serving the frozen XGBoost artifact          (this sprint)
+frontend/demo/   static HTML/CSS/JS dashboard, no build step                   (this sprint)
+frontend/src/    planned React + TypeScript dashboard                          (not started, empty)
+tests/           unit · ml · graph · api · leakage · integration · e2e
+docs/            cost model, split protocol, leakage policy, protocols, submission results
+scripts/         dataset generation, baseline training, heldout evaluation
+data/            generated datasets and splits (git-ignored)
+artifacts/       models, preprocessing, reports (git-ignored)
 ```
 
 Generated data and model artifacts are never committed — they are reproduced from a
@@ -193,24 +200,43 @@ python scripts/audit_ml_readiness.py --prevalence 0.05    # the Checkpoint 1.5 g
 `make help` lists the available targets. `make data` writes `data/raw/`
 (transactions, entity tables, ground-truth registry, manifest, validation report)
 and `data/splits/{warmup,train,validation,heldout}/`; the same seed and config
-reproduce it byte-for-byte. The API and the dashboard become available at
-Checkpoints 4 and 5.
+reproduce it byte-for-byte.
+
+### Running the demo API and dashboard
+
+```bash
+export SENTINEL_EXPERIMENT_ID=<the checkpoint-2G experiment id you trained>
+uv run uvicorn backend.app.main:app --reload --port 8000
+```
+
+Then open `http://localhost:8000/demo/` — the FastAPI app serves the static
+dashboard directly, so there is nothing separate to build or start for the
+frontend. If no local dataset exists yet (`make data` was not run), the API
+falls back to a small illustrative synthetic fixture, clearly labelled in the
+dashboard as a fallback rather than real data. The dashboard never reads
+`data/splits/heldout`; its "frozen heldout evaluation" numbers are the
+Checkpoint 2H results reported once, verbatim, in `backend/app/routers/stats.py`.
 
 ---
 
 ## Results
 
-**Not yet measured.**
+From the Checkpoint 2H sealed-heldout evaluation — run **exactly once**, after
+every model, hyperparameter, and decision threshold was already frozen on the
+validation split. These numbers are reported verbatim wherever they appear in
+this repository; none are recomputed here.
 
-No features have been engineered, no model has been trained, and no experiment has
-been run. What *has* been established is that the data is fit to model and that the
-safety machinery works: `docs/CHECKPOINT_1_VERIFICATION.md` records the dataset's
-properties and the shortcut audit behind it, and `docs/ML_READINESS.md` records the
-readiness gate passing at 1/5/10/25% with zero oracle findings and zero
-point-in-time contaminations. Both are properties of the data and the scaffolding,
-not evidence about a detector. The results tables in `EVALUATION.md`,
-`docs/MODEL_BASELINES.md`, and `MODEL_CARD.md` are laid out and waiting, and every
-cell says so honestly.
+| Model | PR-AUC (primary) | ROC-AUC | Precision | Recall | F1 | Benchmark cost |
+|---|---|---|---|---|---|---|
+| Majority baseline | 0.0508 | 0.5000 | 0.0508 | 1.0000 | 0.0966 | $399,660 |
+| Logistic Regression | 0.5864 | 0.9023 | 0.1547 | 0.8810 | 0.2623 | $179,490 |
+| **XGBoost (primary model)** | **0.7430** | **0.9603** | **0.2460** | **0.9270** | **0.3888** | **$107,535** |
+
+Benchmark cost uses the synthetic `FP_COST=15` / `FN_COST=450` assumptions from
+`docs/COST_MODEL.md`; it is not comparable across projects or to any real-world
+cost. See `docs/SUBMISSION_RESULTS.md` for the full write-up, and
+`docs/CHECKPOINT_1_VERIFICATION.md` / `docs/ML_READINESS.md` for the data-quality
+findings this evaluation builds on.
 
 ---
 
