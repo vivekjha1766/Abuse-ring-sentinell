@@ -14,7 +14,7 @@ this document differ, this document describes the current repository state.
 | PIT features and temporal engine | Implemented and leakage-tested | `ml/`, `tests/leakage/` |
 | Preprocessing and baseline models | Implemented; new runs capture provenance | `ml/`, `scripts/train_baseline_models.py` |
 | Checkpoint 2H transaction benchmark | Frozen and sealed; reported once | `README.md`, `docs/SUBMISSION_RESULTS.md` |
-| Graph layer | Investigation/demo graph only; not fused into scoring | `graph/`, `docs/SUBMISSION_RESULTS.md` |
+| Graph layer | PIT-safe in-memory index (`ts < T`), ego networks, unlabeled ring candidates; dedicated PIT regression suite | `graph/`, `tests/graph/` |
 | Backend | Read-only demo API; no persistence or authentication | `backend/` |
 | Frontend | Static demo; React application not implemented | `frontend/demo/`, `frontend/src/` |
 | Entity reputation and risk fusion | Not implemented | Target architecture only |

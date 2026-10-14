@@ -22,10 +22,12 @@ anomalies **and** coordinated fraud rings, on fully synthetic data.
 > Majority, Logistic Regression, and XGBoost (2E/2G) — are in place. The
 > sealed heldout split has now been opened exactly once (Checkpoint 2H), after
 > every threshold was already frozen on validation; see **Results** below for
-> the frozen numbers. A demo API (`backend/`), an investigative graph layer
-> (`graph/`), and a static dashboard (`frontend/demo/`) sit on top of this
-> frozen core and change none of it. No production frontend, real-time
-> serving, or entity-reputation/fusion layer exists yet.
+> the frozen numbers. A demo API (`backend/`), an investigative point-in-time
+> graph layer (`graph/`, strictly enforcing `ts < T` and zero label leakage in
+> online serving), and a static dashboard (`frontend/demo/`) sit on top of this
+> frozen core and change none of it. The sealed heldout dataset was not accessed
+> or reopened during graph development. No production frontend, live graph risk
+> scoring fusion, or entity-reputation layer exists yet.
 
 ---
 
@@ -154,7 +156,7 @@ simpler methods are insufficient. Full rationale in `ARCHITECTURE.md`.
 ```
 simulator/       synthetic ecosystem + 7 parameterized attack families         (Checkpoint 1, frozen)
 ml/              PIT-safe features, temporal, preprocessing, models, eval      (2A-2H, frozen)
-graph/           investigation graph: entities, edges, ring candidates         (this sprint)
+graph/           PIT-safe investigation graph: entities, edges, ring candidates (PIT regression-tested)
 backend/         FastAPI demo API serving the frozen XGBoost artifact          (this sprint)
 frontend/demo/   static HTML/CSS/JS dashboard, no build step                   (this sprint)
 frontend/src/    planned React + TypeScript dashboard                          (not started, empty)
@@ -266,6 +268,13 @@ Stated up front rather than buried, because a reviewer will find them anyway:
 - **No adversarial adaptation.** Simulated attackers do not react to being detected.
 - **Prototype scale.** This is a **production-style portfolio prototype**, not a
   system validated for real financial decisioning in a banking environment.
+- **Graph layer scope.** The graph implementation provides a point-in-time safe
+  chronological index (`ts < T`) for ego-networks and unlabeled ring candidate extraction.
+  Graph risk score fusion into the primary ML model, GNN embeddings, and persistent
+  graph databases remain future work / explicit limitations.
+- **Sealed heldout preservation.** The Checkpoint 2H heldout evaluation was executed
+  once historically and remains completely sealed; no heldout files were opened,
+  scored, or altered during graph and API integration work.
 
 ---
 

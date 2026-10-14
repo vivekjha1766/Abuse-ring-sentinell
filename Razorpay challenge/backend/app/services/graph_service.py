@@ -80,7 +80,6 @@ def rings(
     """Return ring candidate components as of the given timestamp without fraud labels."""
     index = _get_pit_index()
     if as_of is None:
-        data = load_demo_data()
-        as_of = max(t.timestamp for t in data.history) if data.history else datetime.now(UTC)
+        as_of = datetime.max.replace(tzinfo=UTC)
 
     return index.rings_as_of(as_of, min_accounts=min_accounts, limit=limit)
