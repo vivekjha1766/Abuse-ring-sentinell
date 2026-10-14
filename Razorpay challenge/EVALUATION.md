@@ -1,9 +1,11 @@
 # Evaluation Protocol & Metric Definitions
 
-**Status:** Checkpoint 1.5 — the metric set, the primary-metric choice, and the
-threshold rule are executable (`ml/evaluation_contract.py`); no model exists, so
-every result in §8 still reads `Not yet measured.`
-Final held-out evaluation runs at Checkpoint 6.
+**Status:** Current protocol. The metric set, primary-metric choice, threshold
+rule, and transaction-level validation evaluator are implemented. The frozen
+Checkpoint 2H transaction results are reported in `README.md` and
+`docs/SUBMISSION_RESULTS.md`; entity, ring, temporal-latency, and ablation results
+remain **Not yet measured.** Historical Checkpoint 1.5 wording is retained where
+it describes the original contract milestone.
 **Owner:** Evaluation Agent (see `AGENTS.md`)
 
 **Purpose.** Define every metric precisely, define the four levels at which
@@ -203,7 +205,7 @@ Checkpoint 6, with all models, hyperparameters, and thresholds already frozen. S
 Every reported number carries its split, seed, threshold, cost configuration, and
 the synthetic-data caveat, per `docs/EXPERIMENT_PROTOCOL.md` §8.
 
-**What is executable as of Checkpoint 1.5.** `ml/evaluation_contract.py` holds the
+**Historical Checkpoint 1.5 contract.** `ml/evaluation_contract.py` holds the
 metric definitions above as code — the confusion matrix, precision, recall, F1,
 PR-AUC as the declared primary ranking metric, ROC-AUC as secondary, and Total
 Error Cost — and it refuses to nominate accuracy as primary. It also owns the

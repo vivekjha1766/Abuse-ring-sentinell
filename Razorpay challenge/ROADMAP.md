@@ -1,7 +1,9 @@
 # Roadmap — Checkpoint Plan
 
-**Status:** Checkpoints 0, 1, and 1.5 complete. Checkpoint 2 is unblocked but not
-started.
+**Status:** Checkpoint 2H transaction benchmark is complete and sealed. This file
+retains the original checkpoint plan; see [STATUS.md](STATUS.md) for the current
+implementation snapshot and the distinction between frozen evidence, demo-only
+surfaces, and planned work.
 **Owner:** Lead Architect (see `AGENTS.md`)
 
 **Purpose.** Define the checkpoint sequence, what each delivers, and the exit
@@ -51,7 +53,7 @@ flowchart LR
 | 0 | Foundation, architecture, documentation | ✅ Complete |
 | 1 | Synthetic ecosystem, fraud simulator, ground truth | ✅ Complete (real `pytest` run carried forward) |
 | 1.5 | ML-readiness audit, leakage controls | ✅ Complete — gate PASS at 1/5/10/25% |
-| 2 | Feature engineering, temporal intelligence, LogReg + XGBoost | ⬜ Not started |
+| 2 | Feature engineering, temporal intelligence, LogReg + XGBoost | ✅ Complete through 2H; benchmark frozen |
 | 3 | Graph intelligence, entity reputation, risk fusion | ⬜ Not started |
 | 4 | FastAPI, PostgreSQL, persistence | ⬜ Not started |
 | 5 | React dashboard, graph explorer, simulation, investigation | ⬜ Not started |

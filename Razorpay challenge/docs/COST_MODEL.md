@@ -1,6 +1,6 @@
 # Cost Model — Cost-Sensitive Evaluation
 
-**Status:** Checkpoint 1.5 — the three configurations and the threshold rule are
+**Status:** Current cost protocol — the three configurations and the threshold rule are
 executable (`ml/evaluation_contract.py`). No model exists, so every cost figure
 below is still **Not yet measured.**
 **Owner:** Evaluation Agent (see `AGENTS.md`)

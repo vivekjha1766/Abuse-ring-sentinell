@@ -1,5 +1,9 @@
 # Abuse-Ring Sentinel
 
+**Current status:** See [STATUS.md](STATUS.md) for the authoritative implementation
+state. Checkpoint 2H is complete, frozen, and sealed; the graph, backend, and
+frontend additions remain demo-only surfaces around that frozen core.
+
 **Graph-Based Fraud Intelligence & Coordinated Abuse Detection Platform**
 
 A production-style portfolio prototype that detects both individual transaction
@@ -162,7 +166,9 @@ artifacts/       models, preprocessing, reports (git-ignored)
 ```
 
 Generated data and model artifacts are never committed — they are reproduced from a
-seed and config.
+seed and config. New training experiments also write a provenance manifest; the
+frozen Checkpoint 2H artifacts and result payload are historical evidence and are
+not rewritten.
 
 ---
 

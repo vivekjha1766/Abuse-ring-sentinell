@@ -1,7 +1,8 @@
 # Experiment Protocol
 
-**Status:** Checkpoint 0 — specification. Applied to every experiment from
-Checkpoint 2 onward.
+**Status:** Current protocol for new experiments. Historical Checkpoint 0 wording
+is retained below. The Checkpoint 2H benchmark is frozen; new training runs write
+an explicit provenance manifest under `artifacts/reports/`.
 **Owner:** ML + Evaluation Agents (see `AGENTS.md`)
 
 **Purpose.** Define how experiments are run, recorded, and made reproducible so

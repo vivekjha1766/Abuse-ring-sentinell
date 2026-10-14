@@ -1,7 +1,9 @@
 # Model Baselines & Results Ledger
 
-**Status:** Checkpoint 0 — specification. Models are implemented in Checkpoint 2.
-All result cells read `Not yet measured.`
+**Status:** Current baseline reference. Models are implemented and the Checkpoint 2H
+transaction benchmark is frozen; the historical validation ledger below retains
+its `Not yet measured.` cells. See `README.md` and `docs/SUBMISSION_RESULTS.md` for
+the frozen reported evidence.
 **Owner:** ML Agent (see `AGENTS.md`)
 
 **Purpose.** Define the baseline ladder, the preprocessing each rung requires, the

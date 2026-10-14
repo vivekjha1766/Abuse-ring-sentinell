@@ -1,7 +1,7 @@
 # Model Card — Abuse-Ring Sentinel Detection System
 
-**Status:** Checkpoint 0 — specification. No models trained; all metrics read
-`Not yet measured.`
+**Status:** Current snapshot. Historical Checkpoint 0 specification text is retained
+below; see [STATUS.md](STATUS.md) for authoritative implementation state.
 **Owner:** ML + Evaluation Agents (see `AGENTS.md`)
 **Last updated:** 2026-08-24
 
@@ -126,12 +126,13 @@ Definitions in `EVALUATION.md`.
 detection latency — reported separately so coordinated-abuse performance is not
 averaged into individual-anomaly performance.
 
-**Results.** Not yet measured. Populated per checkpoint; final held-out numbers at
-Checkpoint 6.
+**Results.** Transaction-level baseline results are frozen historical evidence in
+`README.md` and `docs/SUBMISSION_RESULTS.md`. Entity, ring, temporal-latency,
+ablation, and reputation results remain **Not yet measured.**
 
 | Level | Metric family | Status |
 |---|---|---|
-| Transaction | PR-AUC, precision, recall, F1, cost | Not yet measured. |
+| Transaction | PR-AUC, precision, recall, F1, cost | Frozen Checkpoint 2H evidence; see `docs/SUBMISSION_RESULTS.md` |
 | Entity | precision, recall, F1 | Not yet measured. |
 | Ring | precision, recall, F1, cluster overlap | Not yet measured. |
 | Temporal | detection latency | Not yet measured. |

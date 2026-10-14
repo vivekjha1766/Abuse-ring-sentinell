@@ -24,7 +24,7 @@ import hashlib
 import json
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -40,6 +40,7 @@ from ml.feature_registry import FEATURE_COLUMNS
 from ml.features import build_feature_matrix
 from ml.models import LogisticRegressionBaseline, MajorityClassifier, XGBoostBaseline
 from ml.preprocessing import StandardScaler, assert_model_matrix_safe
+from scripts.provenance import build_provenance
 from simulator.transactions import Transaction
 
 DATA_ROOT = REPO_ROOT / "data"
@@ -90,6 +91,12 @@ def _read_accounts() -> dict[str, dict[str, datetime]]:
         }
 
 
+def _read_dataset_manifest(path: Path) -> dict:
+    if not path.exists():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 def _labels(transactions: list[Transaction]) -> np.ndarray:
     return np.array([t.is_fraud for t in transactions], dtype=bool)
 
@@ -133,6 +140,12 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=int(os.environ.get("SENTINEL_SEED", 42)))
     parser.add_argument("--git-commit", type=str, default="unknown")
     parser.add_argument("--output-dir", type=Path, default=ARTIFACTS_ROOT)
+    parser.add_argument(
+        "--dataset-manifest",
+        type=Path,
+        default=DATA_ROOT / "raw" / "manifest.json",
+        help="dataset manifest used to identify the generated input",
+    )
     args = parser.parse_args()
 
     warmup = _read_transactions("warmup")
@@ -184,12 +197,14 @@ def main() -> None:
         y_validation, xgboost_scores, model_type="xgboost", cost=cost
     )
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(datetime.UTC)
     timestamp = now.isoformat()
+    dataset_manifest = _read_dataset_manifest(args.dataset_manifest)
     config = {
         "seed": args.seed,
         "feature_columns": list(FEATURE_COLUMNS),
         "cost_config": cost.name,
+        "dataset_config_fingerprint": dataset_manifest.get("config_fingerprint"),
     }
     experiment_id = _generate_experiment_id(config, now)
 
@@ -243,6 +258,35 @@ def main() -> None:
         "hyperparameters": xgboost_model.hyperparameters,
     }
 
+    dataset_files = [
+        DATA_ROOT / "raw" / "accounts.csv",
+        *(DATA_ROOT / "splits" / split / "transactions.csv" for split in PERMITTED_SPLITS),
+    ]
+    provenance = build_provenance(
+        experiment_id=experiment_id,
+        repo_root=REPO_ROOT,
+        dataset_files=dataset_files,
+        dataset_manifest=dataset_manifest or None,
+        resolved_config=dataset_manifest.get("config", config),
+        feature_columns=FEATURE_COLUMNS,
+        split_transactions={
+            "warmup": warmup,
+            "train": train,
+            "validation": validation,
+        },
+        seed=args.seed,
+        threshold_method="validation_cost_minimization",
+        cost={"name": cost.name, "fp_cost": cost.fp_cost, "fn_cost": cost.fn_cost},
+        runtime_settings={
+            "xgboost_n_jobs": xgboost_model.hyperparameters.get("n_jobs"),
+            "xgboost_tree_method": xgboost_model.hyperparameters.get("tree_method"),
+        },
+        supplied_git_commit=args.git_commit if args.git_commit != "unknown" else "",
+    )
+    provenance_path = reports_dir / f"provenance_{experiment_id}.json"
+    _assert_artifact_does_not_exist(provenance_path)
+    provenance_path.write_text(json.dumps(provenance, indent=2, sort_keys=True), encoding="utf-8")
+
     record = {
         "experiment_id": experiment_id,
         "timestamp": timestamp,
@@ -256,6 +300,7 @@ def main() -> None:
         "split": "validation",
         "feature_set": "B - transaction + temporal (25 registered features; no graph/reputation yet)",
         "preprocessing_ref": str(scaler_path.relative_to(REPO_ROOT)),
+        "provenance_ref": str(provenance_path.relative_to(REPO_ROOT)),
         "models": [majority_record, logreg_record, xgboost_record],
         "notes": (
             "Checkpoint 2E baseline ladder (Model 0 + Model 1) plus the "

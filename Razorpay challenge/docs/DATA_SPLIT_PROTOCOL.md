@@ -1,7 +1,8 @@
 # Data Split Protocol — Temporal Splitting & the Sealed Held-Out Set
 
-**Status:** Checkpoint 1.5 — the permissions matrix and the seal are executable
-(`ml/split_policy.py`). Applied to models and preprocessing from Checkpoint 2.
+**Status:** Current split protocol. The permissions matrix and seal remain
+executable in `ml/split_policy.py`; the Checkpoint 2H heldout result is frozen
+historical evidence and must not be reopened.
 **Owner:** Data + Evaluation Agents (see `AGENTS.md`)
 
 **Purpose.** Define exactly how the dataset is partitioned for training,
