@@ -5,7 +5,7 @@ reports the FROZEN Checkpoint 2H heldout results. Never fits, tunes, or
 reads heldout for anything at runtime. See README.md and
 docs/SUBMISSION_RESULTS.md.
 
-Start with (from the `Razorpay challenge/` directory):
+Start with (from the repository root):
     export SENTINEL_EXPERIMENT_ID=<your Checkpoint 2G experiment_id>
     uv run uvicorn backend.app.main:app --reload --port 8000
 """
