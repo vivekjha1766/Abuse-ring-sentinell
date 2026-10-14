@@ -179,12 +179,12 @@ async function loadRings() {
       (r) => `<tr>
         <td>${r.component_id}</td><td>${r.account_count}</td><td>${r.device_count}</td>
         <td>${r.ip_count}</td><td>${r.transaction_count}</td>
-        <td>${(r.fraud_concentration * 100).toFixed(1)}%</td>
+        <td>${r.fraud_concentration != null ? (r.fraud_concentration * 100).toFixed(1) + '%' : 'Unlabeled (online)'}</td>
       </tr>`
     )
     .join("");
   $("#rings-table").innerHTML = `<thead><tr>
-      <th>Component</th><th>Accounts</th><th>Devices</th><th>IPs</th><th>Transactions</th><th>Fraud concentration</th>
+      <th>Component</th><th>Accounts</th><th>Devices</th><th>IPs</th><th>Transactions</th><th>Status</th>
     </tr></thead><tbody>${rows}</tbody>`;
 }
 
@@ -235,7 +235,10 @@ async function runDemoWalkthrough() {
     const topRing = ringsData.rings[0];
     addStep(
       topRing
-        ? `<b>5. Suspicious ring candidate:</b> ${topRing.account_count} accounts, ${topRing.device_count} devices, ${topRing.ip_count} IPs, fraud concentration ${(topRing.fraud_concentration * 100).toFixed(1)}%`
+        ? `<b>5. Suspicious ring candidate:</b> ${topRing.account_count} accounts, ${topRing.device_count} devices, ${topRing.ip_count} IPs` +
+            (topRing.fraud_concentration != null
+              ? `, fraud concentration ${(topRing.fraud_concentration * 100).toFixed(1)}%`
+              : " (unlabeled online candidate)")
         : "<b>5. Suspicious ring candidate:</b> none found in this dataset sample."
     );
 

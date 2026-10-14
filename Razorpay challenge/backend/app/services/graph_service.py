@@ -1,58 +1,60 @@
-"""Caching adapter between graph/ and the API layer.
+"""Point-in-time graph service adapter for the API layer.
 
-The investigation graph is built once from DemoData.history (never
-heldout) and reused across requests, rather than rebuilt per call.
+Ensures all graph queries, ego networks, and entity signals are strictly
+point-in-time safe (as-of the query transaction's timestamp).
+Offline label concentrations are excluded from online responses.
 """
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from functools import lru_cache
 
-import networkx as nx
-
-from graph.analytics import (
-    connected_components_summary,
-    shared_device_account_count,
-    shared_ip_account_count,
-)
-from graph.build import build_investigation_graph
-
 from backend.app.services.data_store import load_demo_data
+from graph.build import PointInTimeGraphIndex
 
 
 @lru_cache(maxsize=1)
-def _graph_and_index() -> tuple[nx.Graph, dict]:
+def _get_pit_index() -> PointInTimeGraphIndex:
     data = load_demo_data()
-    graph = build_investigation_graph(data.history)
-    by_account: dict[str, list] = {}
-    for txn in data.history:
-        by_account.setdefault(txn.account_id, []).append(txn)
-    return graph, by_account
+    return PointInTimeGraphIndex(data.history)
 
 
 def entity_signals_for_transaction(transaction_id: str) -> dict | None:
+    """Return point-in-time entity degree signals as of the transaction timestamp."""
     data = load_demo_data()
     transaction = data.get(transaction_id)
     if transaction is None:
         return None
-    graph, _ = _graph_and_index()
+
+    index = _get_pit_index()
     return {
-        "shared_device_account_count": shared_device_account_count(graph, transaction.device_id),
-        "shared_ip_account_count": shared_ip_account_count(graph, transaction.ip_id),
+        "shared_device_account_count": index.shared_device_account_count(
+            transaction.device_id, as_of=transaction.timestamp
+        ),
+        "shared_ip_account_count": index.shared_ip_account_count(
+            transaction.ip_id, as_of=transaction.timestamp
+        ),
     }
 
 
 def graph_for_transaction(transaction_id: str, *, radius: int = 1) -> dict | None:
+    """Return the ego network around the transaction's account as of its timestamp."""
     data = load_demo_data()
     transaction = data.get(transaction_id)
     if transaction is None:
         return None
-    graph, _ = _graph_and_index()
+
+    index = _get_pit_index()
+    ego = index.ego_graph_as_of(
+        transaction.account_id,
+        as_of=transaction.timestamp,
+        radius=radius,
+    )
     center = ("account", transaction.account_id)
-    if center not in graph:
+    if center not in ego:
         return None
 
-    ego = nx.ego_graph(graph, center, radius=radius)
     return {
         "center": f"{center[0]}:{center[1]}",
         "nodes": [
@@ -69,7 +71,16 @@ def graph_for_transaction(transaction_id: str, *, radius: int = 1) -> dict | Non
     }
 
 
-def rings(*, min_accounts: int = 2, limit: int = 10) -> list[dict]:
-    graph, by_account = _graph_and_index()
-    summaries = connected_components_summary(graph, by_account, min_accounts=min_accounts)
-    return summaries[:limit]
+def rings(
+    *,
+    as_of: datetime | None = None,
+    min_accounts: int = 2,
+    limit: int = 10,
+) -> list[dict]:
+    """Return ring candidate components as of the given timestamp without fraud labels."""
+    index = _get_pit_index()
+    if as_of is None:
+        data = load_demo_data()
+        as_of = max(t.timestamp for t in data.history) if data.history else datetime.now(UTC)
+
+    return index.rings_as_of(as_of, min_accounts=min_accounts, limit=limit)
